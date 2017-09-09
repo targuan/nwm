@@ -45,6 +45,10 @@ Point.prototype.distance = function(point) {
 Point.prototype.copy = function() {
     return new Point(this.x, this.y)
 }
+Point.prototype.moveBy = function(u) {
+    this.x += u.x
+    this.y += u.y
+}
 /**
  * Vector
  *
@@ -56,29 +60,45 @@ var Vector = function(x, y) {
 Vector.prototype.add = function(v) {
     this.x += v.x
     this.y += v.y
+    
+    return this
 }
 Vector.prototype.substract = function(v) {
     this.x -= v.x
     this.y -+ v.y
+    
+    return this
 }
 Vector.prototype.multiply = function(a) {
     this.x = this.x * a
     this.y = this.y * a
+    
+    return this
 }
 Vector.prototype.opposite = function() {
     this.x = -this.x
     this.y = -this.y
+    
+    return this
 }
 Vector.prototype.norm = function() {
     return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2))
 }
-Vector.prototype.normalize = function() {
-    this.multiply(1/this.norm)
+Vector.prototype.normalize = function(a) {
+    a = a || 1
+    this.multiply(a/this.norm())
+    
+    return this
 }
 Vector.prototype.orthogonal = function() {
     v = Vector.copy(this)
     this.x = -v.y
     this.y = v.x
+    
+    return this
+}
+Vector.prototype.scalar_product = function(v) {
+    return Vector.scalar_product(this, v)
 }
 
 Vector.copy = function(u) {
@@ -89,6 +109,12 @@ Vector.fromPoint = function(P0) {
 }
 Vector.fromSegment = function(P0, P1) {
     return new Vector(P1.x - P0.x, P1.y - P0.y)
+}
+Vector.add = function(u, v) {
+    return new Vector(u.x + v.x, u.y+v.y)
+}
+Vector.scalar_product = function(u,v) {
+    return u.x * v.x + u.y * v.y
 }
 
 /**
@@ -131,23 +157,61 @@ var Link = function(a,z) {
 Link.prototype.addVia = function(point) {
     this.via.push(point)
 }
-Link.prototype.getAngledPoints = function() {
+Link.prototype.getAngledSkel = function() {
     var points = [this.a.position].concat(this.via)
     points.push(this.z.position)
     
     return points
 }
-Link.prototype.getAngledPath = function() {
-    var points = this.getAngledPoints()
-    var d = "M " + points[0].join(',') + " L "
-    for(i=1;i<points.length;i++) {
-        d += points[i].join(',') + " "
+Link.prototype.getParallal = function(distance) {
+    var points = this.getAngledSkel()
+    
+    if(distance == 0) {
+        return points
     }
+    
+    waypoint = []
+    // First point
+    point = points[0].copy()
+    u = Vector.fromSegment(point, points[1]).orthogonal().normalize(distance)
+    point.moveBy(u)
+    waypoint.push(point)
+    
+    // Middle points
+    for(i=1;i<points.length-1;i++) {
+        point = points[i].copy()
+        u = Vector.fromSegment(points[i-1],point).orthogonal().normalize()
+        v = Vector.fromSegment(point,points[i+1]).orthogonal().normalize()
+        scalar = Vector.scalar_product(u, v)
+        
+        point.moveBy(Vector.add(u,v).multiply(distance/(scalar+1)))
+        
+        waypoint.push(point)
+        
+    }
+    
+    // Last point
+    point = points[points.length-1].copy()
+    u = Vector.fromSegment(points[points.length-2], point).orthogonal().normalize(distance)
+    point.moveBy(u)
+    waypoint.push(point)
+    
+    
+    return waypoint
+}
+Link.prototype.getAngledPath = function() {
+    waypoint = this.getParallal(10).concat(this.getParallal(-10).reverse())
+    
+    var d = "M " + waypoint[0].getCouple() + " L "
+    for(i=1;i<waypoint.length;i++) {
+        d += waypoint[i].getCouple() + " "
+    }
+    
     return d
 }
-Link.prototype.getCurvedPoints = function() {
+Link.prototype.getCurvedPoints = function(constraint_points) {
     ratio = 5
-    constraint_points = this.getAngledPoints()
+    
     constraint_size = constraint_points.length
     waypoints = [constraint_points[0]]
     control_point = constraint_points[0].copy()
@@ -158,7 +222,7 @@ Link.prototype.getCurvedPoints = function() {
         P1 = constraint_points[i]
         P2 = constraint_points[i+1]
         
-        if(i==1) {
+        if(i==0) {
             control_point = new Point((P0.x-P2.x)/ratio + P1.x, (P0.y-P2.y)/ratio + P1.y)
             control_point.type="control"
             waypoints.push(control_point)
@@ -184,13 +248,20 @@ Link.prototype.getParallalPath = function(waypoints) {
     console.log(waypoints)
 }
 Link.prototype.getCurvedD = function() {
-    waypoints = this.getCurvedPoints()
-    var d = "M " + waypoints[0].getCouple() + " C "
+    var d = ""
+    
+    waypoints = this.getCurvedPoints(this.getParallal(0))
+    d += "M " + waypoints[0].getCouple() + " C "
     for(i=1;i<waypoints.length;i++) {
         d += waypoints[i].getCouple() + " "
     }
     
-    this.getParallalPath(waypoints)
+    /*waypoints = this.getCurvedPoints(this.getParallal(-10).reverse())
+    d += "L " + waypoints[0].getCouple() + " C "
+    for(i=1;i<waypoints.length;i++) {
+        d += waypoints[i].getCouple() + " "
+    }*/
+    
     
     return d
 }

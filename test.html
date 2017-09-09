@@ -101,6 +101,7 @@ function updateAll() {
     d3edges = svgDoc.selectAll('.link').data(map.links)
     d3edges.exit().remove()
     d3edges.enter().append("path").classed("link",true)
+        .attr('marker-mid', "url(#arrow)")
         .on("click", selectLink)
         .merge(d3edges)
         .attr('d', function(d){ return d.getD() })
@@ -218,8 +219,13 @@ window.onload = function() {
 <div id="flex-container">
     <div id="map-container">
     <svg width="700" height="450" id="map">
-      <rect width="100%" height="100%" style="fill:rgb(255,255,255);stroke-width:5;stroke:rgb(0,0,0)">
-      </rect>
+        <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="1" refY="1" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,2 L2,1 z" fill="red" />
+            </marker>
+        </defs>
+        <rect width="100%" height="100%" style="fill:rgb(255,255,255);stroke-width:5;stroke:rgb(0,0,0)">
+        </rect>
     </svg>
     </div>
     <div id="context-menu">
