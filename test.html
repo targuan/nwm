@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html {
+  height: 100%;
+}
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+#flex-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+#context-menu {
+    height: 100%;
+    width: 300px;
+    background-color: red;
+    background-color: lightgrey;
+    box-shadow: -5px 0px 5px grey ;
+} 
+#map-container {
+    flex-grow: 1;
+}
+.link {
+
+    fill:none;
+    stroke: blue;
+    stroke-width:5;
+    stroke-opacity: 0.5;
+}
+.path-quad {
+    fill:none;
+    stroke: blue;
+    stroke-width:5;
+    stroke-opacity: 0.5;
+}
+.path-cubic {
+    fill:none;
+    stroke: red;
+    stroke-width:5;
+    stroke-opacity: 0.5;
+}
+.path-linear {
+    fill:none;
+    stroke: green;
+    stroke-width:5;
+    stroke-opacity: 0.5;
+}
+.skel {
+    fill:none;
+    stroke: red;
+    stroke-width:1;
+    stroke-opacity: 0.5;
+}
+.not-selected {
+    opacity: 0.5;
+}
+.viapoint {
+    cursor: move;
+}
+.node {
+    cursor: move;
+}
+input {
+    padding:8px;
+    display:block;
+    border:none;
+    border-bottom:1px solid black;
+    box-sizing:border-box;
+    width:100%
+}
+</style>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="models.js"></script>
+<script src="parser.js"></script>
+<script>
+var DEBUG = false
+
+function clearWaypoint() {
+    
+}
+
+function clearSelection() {
+    d3.selectAll('.not-selected').classed('not-selected', false)
+    d3.selectAll('.selected').classed('selected', false)
+    
+    d3.selectAll('#map').selectAll('.viapoint').data([]).exit().remove()
+    d3.select("#context-menu").selectAll('p').data([]).exit().remove()
+    
+    clearWaypoint()
+}
+
+function updateAll() {   
+    map = d3.select("#map").datum()
+    var svgDoc = d3.select("svg")
+    
+    d3edges = svgDoc.selectAll('.link').data(map.links)
+    d3edges.exit().remove()
+    d3edges.enter().append("path").classed("link",true)
+        .on("click", selectLink)
+        .merge(d3edges)
+        .attr('d', function(d){ return d.getD() })
+   
+    d3nodes = svgDoc.selectAll('.node').data(map.nodes)
+    d3nodes.exit().remove()
+    updateNodeSelection(
+        d3nodes.enter().append("rect").classed("node",true)
+            .on("click", selectNode)
+            .call(d3.drag().on("drag", dragNode))
+            .merge(d3nodes)
+    )
+}
+
+function updateNodeSelection(ns) {
+    ns.attr('width', 10)
+    .attr('height', 10)
+    .attr('x', function(d){ return d.position.x - d.size.w/2 })
+    .attr('y', function(d){ return d.position.y - d.size.h/2 })
+}
+
+
+function dragNode(d) {
+    clearSelection()
+    selectElement(this,d)
+    d.position.x += d3.event.dx
+    d.position.y += d3.event.dy
+    
+    updateAll(d.map)
+}
+
+function dragViapoint(d) {
+    d.x += d3.event.dx
+    d.y += d3.event.dy
+    
+    var viapoint = d3.select(this).datum(d)
+    viapoint.merge(viapoint)
+        .attr('r', 5)
+        .attr('cx', function(d){ return d.x })
+        .attr('cy', function(d){ return d.y })
+        .call(d3.drag().on("drag", dragViapoint))
+    
+    updateAll(d.map)
+}
+
+function selectElement(element, d) {
+    d3.selectAll('.node, .link').classed('not-selected', true)
+    d3.select(element).classed('selected', true).classed('not-selected', false)
+    d3.select("context-menu").datum(d)
+    /*var properties = d3.select("#context-menu").selectAll('p').data(d.getEditableProperties())
+    properties.exit().remove()
+    properties.enter().append('p')
+        .merge(properties).each(function(dp) {
+            var self = d3.select(this);
+            var label = self.selectAll('label').data([dp])
+            label.enter().append("label")
+                .merge(label)
+                .text(dp.name)
+                .style("width", "100px")
+                .style("display", "inline-block");
+
+            var input = self.selectAll('input').data([dp])
+            input.enter().append("input")
+                .merge(input)
+                .attr("type", dp.type)
+                .on("keyup", function() { console.log('changed',d)})
+                
+                
+                
+        })*/
+}
+function selectNode(d) {
+    selectElement(this, d)
+    d3.event.stopPropagation();
+    
+    
+}
+function selectLink(d) {
+    selectElement(this, d)
+    d3.event.stopPropagation();
+    
+    var viapoints = d3.select('#map').selectAll('.viapoint').data(d.via)
+    viapoints.exit().remove()
+    viapoints.enter().append('circle').classed('viapoint', true)
+        .call(d3.drag().on("drag", dragViapoint))
+        .merge(viapoints)
+        .attr('r', 5)
+        .attr('cx', function(d){ return d.x })
+        .attr('cy', function(d){ return d.y })
+        
+}
+
+window.onload = function() {
+    d3.select("body")
+        .on("keydown", function(d) { if(d3.event.keyCode == 27) { clearSelection() }})
+    map = new Map();
+    a = new Node("a", new Point(150,130))
+    z = new Node("z", new Point(500,10))
+    link = new Link(a,z)
+    link.addVia(new Point(200,200))
+    link.addVia(new Point(300,400))
+
+    map.addNode(a)
+    map.addNode(z)
+    map.addLink(link)
+    
+    d3.select("#map").datum(map)
+        .on("click", function(){ clearSelection() })
+
+    updateAll(map)
+}
+</script>
+</head>
+<body>
+<div id="flex-container">
+    <div id="map-container">
+    <svg width="700" height="450" id="map">
+      <rect width="100%" height="100%" style="fill:rgb(255,255,255);stroke-width:5;stroke:rgb(0,0,0)">
+      </rect>
+    </svg>
+    </div>
+    <div id="context-menu">
+    
+    </div>
+</div>
+</body>
+</html>
