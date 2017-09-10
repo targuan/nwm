@@ -5,22 +5,34 @@
 var Map = function() {
     this.nodes = []
     this.links = []
+    this.properties = {}
+    
 }
 Map.prototype.addNode = function(node) {
-    node.map = this
-    this.nodes.push(node)
+    if(node.id != 'DEFAULT') {
+        this.nodes.push(node)
+        node.map = this
+    }
 }
 Map.prototype.addLink = function(link) {
-    link.map = this
-    this.links.push(link)
+    if(link.id != 'DEFAULT') {
+        this.links.push(link)
+        link.map = this
+    }
+}
+Map.prototype.getNodeById = function(id) {
+    for(i=0;i<this.nodes.length;i++) {
+        if(id == this.nodes[i].id) return this.nodes[i]
+    }
 }
 /**
  * Point
  *
  **/
-var Point = function(x,y) {
+var Point = function(x,y, origin) {
     this.x = x
     this.y = y
+    this.origin = origin
 }
 Point.prototype.setX = function(x) {
     this.x = x
@@ -129,37 +141,38 @@ var Size = function(w,h) {
  * Node
  *
  **/
-var Node = function(name, position, size) {
-    
-    if (typeof(name)==='undefined') name = ""
-    if (typeof(position)==='undefined') position = new Point(0,0)
-    if (typeof(size)==='undefined') size = new Size(10,10)
-    
-    this.name = name
-    this.position = position
-    this.size = size
-    this.map = null
+var Node = function(id) {
+    this.id = id
+    this.position = new Point(0, 0)
+    this.properties = {}
 }
 
 /**
  * Link
  *
  **/
-var Link = function(a,z) {
-    this.a = a
-    this.z = z
+var Link = function(id) {
+    this.a = null
+    this.z = null
+    this.id = id
+    this.properties = []
     
-    this.viastyle = "curved"
     this.via = []
-    this.path = null
-    this.map = null
+}
+Link.prototype.setNodes = function(nodes) {
+    this.a = nodes[0]
+    this.z = nodes[1]
+}
+Link.prototype.getNodes = function() {
+    return [this.map.getNodeById(this.a.id), this.map.getNodeById(this.z.id)]
 }
 Link.prototype.addVia = function(point) {
     this.via.push(point)
 }
 Link.prototype.getSkel = function() {
-    var points = [this.a.position].concat(this.via)
-    points.push(this.z.position)
+    console.log(this.getNodes())
+    var points = [this.getNodes()[0].position].concat(this.via)
+    points.push(this.getNodes()[1].position)
     
     return points
 }
@@ -199,80 +212,6 @@ Link.prototype.getParallal = function(distance) {
     
     return waypoint
 }
-Link.prototype.getAngledPath = function() {
-    waypoint = this.getParallal(10).concat(this.getParallal(-10).reverse())
-    
-    var d = "M " + waypoint[0].getCouple() + " L "
-    for(i=1;i<waypoint.length;i++) {
-        d += waypoint[i].getCouple() + " "
-    }
-    
-    return d
-}
-Link.prototype.getCurvedPoints = function(constraint_points) {
-    ratio = 5
-    
-    constraint_size = constraint_points.length
-    waypoints = [constraint_points[0]]
-    control_point = constraint_points[0].copy()
-    control_point.type="control"
-    
-    for(i=1;i<constraint_size-1;i++) {
-        P0 = constraint_points[i-1]
-        P1 = constraint_points[i]
-        P2 = constraint_points[i+1]
-        
-        if(i==0) {
-            control_point = new Point((P0.x-P2.x)/ratio + P1.x, (P0.y-P2.y)/ratio + P1.y)
-            control_point.type="control"
-            waypoints.push(control_point)
-            waypoints.push(control_point)
-        } else {
-            waypoints.push(control_point)
-            control_point = new Point((P0.x-P2.x)/ratio + P1.x, (P0.y-P2.y)/ratio + P1.y)
-            control_point.type="control"
-            waypoints.push(control_point)
-        }
-        waypoints.push(P1)
-        control_point = new Point((P2.x-P0.x)/ratio + P1.x, (P2.y-P0.y)/ratio + P1.y)
-        control_point.type="control"
-    }
-    waypoints.push(control_point)
-    control_point = constraint_points[constraint_size-1]
-    control_point.type="control"
-    waypoints.push(control_point)
-    waypoints.push(constraint_points[constraint_size-1])
-    return waypoints
-}
-Link.prototype.getParallalPath = function(waypoints) {
-    console.log(waypoints)
-}
-Link.prototype.getCurvedD = function() {
-    var d = ""
-    
-    waypoints = this.getCurvedPoints(this.getParallal(0))
-    d += "M " + waypoints[0].getCouple() + " C "
-    for(i=1;i<waypoints.length;i++) {
-        d += waypoints[i].getCouple() + " "
-    }
-    
-    /*waypoints = this.getCurvedPoints(this.getParallal(-10).reverse())
-    d += "L " + waypoints[0].getCouple() + " C "
-    for(i=1;i<waypoints.length;i++) {
-        d += waypoints[i].getCouple() + " "
-    }*/
-    
-    
-    return d
-}
-Link.prototype.getD = function() {
-    if(this.viastyle == "curved") {
-        return this.getCurvedD()
-    } else {
-        return this.getAngledPath(map)
-    }
-}
-
 
 d3helper = {}
 // take a link and return the path for this link

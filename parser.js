@@ -8,7 +8,7 @@ Parser.prototype.parse = function(text) {
         .match(/"(?:\\"|[^"])+"|[^ \r\n\t]+/g)
         .filter(function(d){return d.length > 0})
     
-    this.map = {nodes: [], links: [], properties: {}}
+    this.map = new Map()
     
     this._current_node = {}
     this._current_link = {}
@@ -169,8 +169,8 @@ Parser.prototype.NODE = function() {
     if(!Parser.string(this.tokens[this.pos+1])) {
         return false;
     }
-    this._current_node = {name: this.tokens[this.pos+1], properties: {}}
-    this.map.nodes.push(this._current_node)
+    this._current_node = new Node(this.tokens[this.pos+1])//{name: this.tokens[this.pos+1], properties: {}}
+    this.map.addNode(this._current_node)
     this.pos += 2
     
     while(this.NODE_PROPERTY()) { }
@@ -399,26 +399,22 @@ Parser.prototype.NODE_POSITION = function() {
     
     // POSITION nodename x-coord y-coord
     if(Parser.string(this.tokens[this.pos+1]) && Parser.float(this.tokens[this.pos+2]) && Parser.float(this.tokens[this.pos+3])) {
-        this._current_node.position =  {
-            origin: this.tokens[this.pos+1],
-            x: parseFloat(this.tokens[this.pos+2]),
-            y: parseFloat(this.tokens[this.pos+3]),
-        }
+        this._current_node.position =  new Point(parseFloat(this.tokens[this.pos+2]),
+                                                    parseFloat(this.tokens[this.pos+3]),
+                                                    this.tokens[this.pos+1])
         this.pos += 4
         return true;
     }
     
     // POSITION x-coord y-coord
-    if(Parser.float(this.tokens[this.pos+1]) && Parser.float(this.tokens[this.pos+1])) {
-        this._current_node.position =  {
-            origin: null,
-            x: parseFloat(this.tokens[this.pos+1]),
-            y: parseFloat(this.tokens[this.pos+2]),
-        }
+    if(Parser.float(this.tokens[this.pos+1]) && Parser.float(this.tokens[this.pos+2])) {
+        this._current_node.position =  new Point(parseFloat(this.tokens[this.pos+1]),
+                                                    parseFloat(this.tokens[this.pos+2]),
+                                                    null)
         this.pos += 3
         return true;
     }
-    console.log(this.tokens[this.pos+2])
+    
     return false
 }
 
@@ -518,8 +514,9 @@ Parser.prototype.LINK = function() {
     if(!Parser.string(this.tokens[this.pos + 1])) {
         return false
     }
-    this._current_link = {name: this.tokens[this.pos+1], properties: {}, via: []}
-    this.map.links.push(this._current_link)
+    this._current_link = new Link(this.tokens[this.pos+1])
+    //{name: this.tokens[this.pos+1], properties: {}, via: []}
+    this.map.addLink(this._current_link)
     this.pos += 2
     
     while(this.LINK_PROPERTY()) { }
@@ -728,7 +725,7 @@ Parser.prototype.LINK_NODES = function(){
         // nodename
         if(tokens.length == 1) {
             nodes.push({
-                name: tokens[0],
+                id: tokens[0],
                 offset: null
             })
             continue
@@ -738,7 +735,7 @@ Parser.prototype.LINK_NODES = function(){
         // nodename{:compassoffset}{percentage}
         re = /^((E|W)|((N|S)(E|W)?))(\d+|\d?\.\d+)?$/.exec(tokens[1])
         if(re) {
-            node = {name: tokens[0], offset: {
+            node = {id: tokens[0], offset: {
                 style: "compass", 
                 direction: re[1],
                 percent: parseFloat(re[6]) || 100
@@ -752,7 +749,7 @@ Parser.prototype.LINK_NODES = function(){
             if(!Parser.float(tokens[1]) || ! Parser.float(tokens[2])) {
                 return false
             }
-            node = {name: tokens[0], offset: {
+            node = {id: tokens[0], offset: {
                 style: "cartesian",
                 x: parseFloat(tokens[1]),
                 y: parseFloat(tokens[2])
@@ -765,7 +762,7 @@ Parser.prototype.LINK_NODES = function(){
         // nodename{:angle}r{radius}
         [angle, radius] == tokens[1].split('r')
         if(Parser.float(angle) && parser.float(radius)) {
-            node = {name: tokens[0], offset: {
+            node = {id: tokens[0], offset: {
                 style: "radial",
                 angle: parseFloat(angle),
                 radius: parseFloat(radius)
@@ -777,7 +774,9 @@ Parser.prototype.LINK_NODES = function(){
         
         return false
     }
-    this._current_link.nodes = nodes
+    
+    this._current_link.setNodes(nodes)
+    //this._current_link.nodes = nodes
     this.pos += 3
     return true;
 }
@@ -862,20 +861,19 @@ Parser.prototype.LINK_VIA = function(){
         && Parser.float(this.tokens[this.pos+2]) 
         && Parser.float(this.tokens[this.pos+3])) {
     
-        via = { node: tokens[this.pos+1],
-                x: parseFloat(this.tokens[this.pos+2]),
-                y: parseFloat(this.tokens[this.pos+3])
-               }
+        via = new Point(parseFloat(this.tokens[this.pos+2]),
+                        parseFloat(this.tokens[this.pos+3]),
+                        tokens[this.pos+1])
         this.pos += 4
         this._current_link.via.push(via)
         return true
     }else if(Parser.float(this.tokens[this.pos+1])  //VIA x-offset y-offset
         && Parser.float(this.tokens[this.pos+2])) {
         
-        via = { node: null,
-                x: parseFloat(this.tokens[this.pos+1]),
-                y: parseFloat(this.tokens[this.pos+2])
-               }
+        via = new Point(parseFloat(this.tokens[this.pos+1]),
+                        parseFloat(this.tokens[this.pos+2]),
+                        null)
+        
         this.pos += 3
         this._current_link.via.push(via)
         return true

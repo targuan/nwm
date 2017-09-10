@@ -183,16 +183,21 @@ function selectLink(d) {
 window.onload = function() {
     d3.select("body")
         .on("keydown", function(d) { if(d3.event.keyCode == 27) { clearSelection() }})
-    map = new Map();
+    
+    /*map = new Map();
     a = new Node("azerty\ntoto", new Point(150,130))
     z = new Node("z", new Point(500,10))
-    link = new Link(a,z)
+    link = new Link("")
+    link.setNodes([a,z])
     link.addVia(new Point(200,200))
     link.addVia(new Point(300,400))
 
     map.addNode(a)
     map.addNode(z)
-    map.addLink(link)
+    map.addLink(link)*/
+    
+    map = parsed
+    console.log(map)
     
     d3.select("#map-container").on("click", function(){ console.log('click');clearSelection() })
     var svg = d3.select("#map-container").append("svg")
@@ -227,7 +232,7 @@ window.onload = function() {
             
             var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("class", "name")
-            text.textContent = d.name
+            text.textContent = d.id
             g.append(text)
             
             var rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
