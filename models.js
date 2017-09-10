@@ -157,14 +157,14 @@ var Link = function(a,z) {
 Link.prototype.addVia = function(point) {
     this.via.push(point)
 }
-Link.prototype.getAngledSkel = function() {
+Link.prototype.getSkel = function() {
     var points = [this.a.position].concat(this.via)
     points.push(this.z.position)
     
     return points
 }
 Link.prototype.getParallal = function(distance) {
-    var points = this.getAngledSkel()
+    var points = this.getSkel()
     
     if(distance == 0) {
         return points
@@ -271,4 +271,21 @@ Link.prototype.getD = function() {
     } else {
         return this.getAngledPath(map)
     }
+}
+
+
+d3helper = {}
+// take a link and return the path for this link
+var line = d3.line()
+        .x(function(d) { return d.x; })
+        .y(function(d) { return d.y; })
+        .curve(d3.curveCardinal)
+
+d3helper.arrowPath = function(d) {
+    inner = d.getParallal(5)
+    outter = d.getParallal(-5).reverse()
+    return line(inner) + line(outter).replace('M', 'L') + "Z"
+}
+d3helper.skelPath = function(d) {
+    return line(d.getSkel())
 }

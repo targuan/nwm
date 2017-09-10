@@ -27,8 +27,8 @@ body {
 }
 .link {
 
-    fill:none;
-    stroke: blue;
+    fill:blue;
+    stroke: black;
     stroke-width:5;
     stroke-opacity: 0.5;
 }
@@ -64,6 +64,12 @@ body {
 }
 .node {
     cursor: move;
+    fill: red;
+}
+.node .border {
+    fill: red;
+    fill-opacity: 0.01;
+    stroke: red;
 }
 input {
     padding:8px;
@@ -80,52 +86,52 @@ input {
 <script>
 var DEBUG = false
 
-function clearWaypoint() {
-    
-}
-
 function clearSelection() {
     d3.selectAll('.not-selected').classed('not-selected', false)
     d3.selectAll('.selected').classed('selected', false)
     
     d3.selectAll('#map').selectAll('.viapoint').data([]).exit().remove()
     d3.select("#context-menu").selectAll('p').data([]).exit().remove()
-    
-    clearWaypoint()
 }
 
 function updateAll() {   
-    map = d3.select("#map").datum()
-    var svgDoc = d3.select("svg")
+    updateLinkSelection(d3.selectAll('.link'))
+    updateNodeSelection(d3.selectAll('.node'))
     
-    d3edges = svgDoc.selectAll('.link').data(map.links)
-    d3edges.exit().remove()
-    d3edges.enter().append("path").classed("link",true)
-        .attr('marker-mid', "url(#arrow)")
-        .on("click", selectLink)
-        .merge(d3edges)
-        .attr('d', function(d){ return d.getD() })
-   
-    d3nodes = svgDoc.selectAll('.node').data(map.nodes)
-    d3nodes.exit().remove()
-    updateNodeSelection(
-        d3nodes.enter().append("rect").classed("node",true)
-            .on("click", selectNode)
-            .call(d3.drag().on("drag", dragNode))
-            .merge(d3nodes)
+}
+
+function updateLinkSelection(selection) {
+    selection.each(
+        function(d){
+            d3.select(this).select('.skel').attr('d', d3helper.skelPath)
+            d3.select(this).select('.edge').attr('d', d3helper.arrowPath)
+        }
     )
 }
 
-function updateNodeSelection(ns) {
-    ns.attr('width', 10)
-    .attr('height', 10)
-    .attr('x', function(d){ return d.position.x - d.size.w/2 })
-    .attr('y', function(d){ return d.position.y - d.size.h/2 })
+function updateNodeSelection(selection) {
+    selection.attr("transform", function(d) { 
+            text = this.getElementsByClassName("name")[0]
+            bbox = text.getBBox()
+            return "translate(" + (d.position.x - bbox.width/2) + "," + (d.position.y - bbox.y/2 - bbox.height/2 ) +")" 
+        })
+        .on("click", selectNode)
+        .call(d3.drag().on("drag", dragNode))
+    
+    d3.selectAll(".node .border").each(function(){
+        rect = d3.select(this)
+        
+        text = this.parentNode.getElementsByClassName("name")[0]
+        bbox = text.getBBox()
+        rect.attr( "x", bbox.x - 5)
+            .attr("y", bbox.y - 5)
+            .attr("width",bbox.width + 10)
+            .attr("height", bbox.height + 10)
+    })
 }
 
 
 function dragNode(d) {
-    clearSelection()
     selectElement(this,d)
     d.position.x += d3.event.dx
     d.position.y += d3.event.dy
@@ -151,27 +157,6 @@ function selectElement(element, d) {
     d3.selectAll('.node, .link').classed('not-selected', true)
     d3.select(element).classed('selected', true).classed('not-selected', false)
     d3.select("context-menu").datum(d)
-    /*var properties = d3.select("#context-menu").selectAll('p').data(d.getEditableProperties())
-    properties.exit().remove()
-    properties.enter().append('p')
-        .merge(properties).each(function(dp) {
-            var self = d3.select(this);
-            var label = self.selectAll('label').data([dp])
-            label.enter().append("label")
-                .merge(label)
-                .text(dp.name)
-                .style("width", "100px")
-                .style("display", "inline-block");
-
-            var input = self.selectAll('input').data([dp])
-            input.enter().append("input")
-                .merge(input)
-                .attr("type", dp.type)
-                .on("keyup", function() { console.log('changed',d)})
-                
-                
-                
-        })*/
 }
 function selectNode(d) {
     selectElement(this, d)
@@ -184,6 +169,7 @@ function selectLink(d) {
     d3.event.stopPropagation();
     
     var viapoints = d3.select('#map').selectAll('.viapoint').data(d.via)
+    
     viapoints.exit().remove()
     viapoints.enter().append('circle').classed('viapoint', true)
         .call(d3.drag().on("drag", dragViapoint))
@@ -198,7 +184,7 @@ window.onload = function() {
     d3.select("body")
         .on("keydown", function(d) { if(d3.event.keyCode == 27) { clearSelection() }})
     map = new Map();
-    a = new Node("a", new Point(150,130))
+    a = new Node("azerty\ntoto", new Point(150,130))
     z = new Node("z", new Point(500,10))
     link = new Link(a,z)
     link.addVia(new Point(200,200))
@@ -208,25 +194,58 @@ window.onload = function() {
     map.addNode(z)
     map.addLink(link)
     
-    d3.select("#map").datum(map)
-        .on("click", function(){ clearSelection() })
-
-    updateAll(map)
+    d3.select("#map-container").on("click", function(){ console.log('click');clearSelection() })
+    var svg = d3.select("#map-container").append("svg")
+        .attr("width", "100%")
+        .attr("height","100%")
+        .append("g")
+        .attr('id', 'map')
+        
+    links = svg.selectAll(".link").data(map.links)
+    links.enter().append(function(d,e,f) {
+        var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        
+        var skel = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        skel.setAttribute('d', d3helper.skelPath(d))
+        skel.setAttribute('class', "skel")
+        g.append(skel)
+        
+        var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute('d', d3helper.arrowPath(d))
+        path.setAttribute('class', "edge")
+        g.append(path)
+        
+        
+        return g
+    })
+      .attr("class", "link")
+      .on("click", selectLink)
+      
+    nodes = svg.selectAll(".node").data(map.nodes)
+    nodes.enter().append(function(d,e,f) {
+            var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("class", "name")
+            text.textContent = d.name
+            g.append(text)
+            
+            var rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute("class", "border")
+            g.append(rect)
+            
+            return g
+        })
+        .attr("class", "node")
+        .call(updateNodeSelection)
+    
 }
 </script>
 </head>
 <body>
 <div id="flex-container">
     <div id="map-container">
-    <svg width="700" height="450" id="map">
-        <defs>
-            <marker id="arrow" markerWidth="10" markerHeight="10" refX="1" refY="1" orient="auto" markerUnits="strokeWidth">
-                <path d="M0,0 L0,2 L2,1 z" fill="red" />
-            </marker>
-        </defs>
-        <rect width="100%" height="100%" style="fill:rgb(255,255,255);stroke-width:5;stroke:rgb(0,0,0)">
-        </rect>
-    </svg>
+
     </div>
     <div id="context-menu">
     
