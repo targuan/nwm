@@ -170,7 +170,6 @@ Link.prototype.addVia = function(point) {
     this.via.push(point)
 }
 Link.prototype.getSkel = function() {
-    console.log(this.getNodes())
     var points = [this.getNodes()[0].position].concat(this.via)
     points.push(this.getNodes()[1].position)
     
@@ -197,7 +196,10 @@ Link.prototype.getParallal = function(distance) {
         v = Vector.fromSegment(point,points[i+1]).orthogonal().normalize()
         scalar = Vector.scalar_product(u, v)
         
-        point.moveBy(Vector.add(u,v).multiply(distance/(scalar+1)))
+        delta = distance/(scalar+1)
+        
+        point.moveBy(Vector.add(u,v).multiply(delta))
+        //point.moveBy(Vector.add(u,v).multiply(distance/2))
         
         waypoint.push(point)
         
@@ -215,16 +217,25 @@ Link.prototype.getParallal = function(distance) {
 
 d3helper = {}
 // take a link and return the path for this link
-var line = d3.line()
+var curve = d3.line()
         .x(function(d) { return d.x; })
         .y(function(d) { return d.y; })
         .curve(d3.curveCardinal)
-
-d3helper.arrowPath = function(d) {
+var line = d3.line()
+        .x(function(d) { return d.x; })
+        .y(function(d) { return d.y; })
+        .curve(d3.curveLinear)
+curve = line
+d3helper.curvePath = function(d) {
+    inner = d.getParallal(5)
+    outter = d.getParallal(-5).reverse()
+    return curve(inner) + curve(outter).replace('M', 'L') + "Z"
+}
+d3helper.linePath = function(d) {
     inner = d.getParallal(5)
     outter = d.getParallal(-5).reverse()
     return line(inner) + line(outter).replace('M', 'L') + "Z"
 }
 d3helper.skelPath = function(d) {
-    return line(d.getSkel())
+    return curve(d.getSkel())
 }

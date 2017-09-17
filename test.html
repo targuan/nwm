@@ -104,7 +104,8 @@ function updateLinkSelection(selection) {
     selection.each(
         function(d){
             d3.select(this).select('.skel').attr('d', d3helper.skelPath)
-            d3.select(this).select('.edge').attr('d', d3helper.arrowPath)
+            d3.select(this).select('.edgeAZ').attr('d', d3helper.curvePath)
+            d3.select(this).select('.edgeZA').attr('d', d3helper.curvePath)
         }
     )
 }
@@ -197,7 +198,6 @@ window.onload = function() {
     map.addLink(link)*/
     
     map = parsed
-    console.log(map)
     
     d3.select("#map-container").on("click", function(){ console.log('click');clearSelection() })
     var svg = d3.select("#map-container").append("svg")
@@ -216,8 +216,13 @@ window.onload = function() {
         g.append(skel)
         
         var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute('d', d3helper.arrowPath(d))
-        path.setAttribute('class', "edge")
+        path.setAttribute('d', d3helper.curvePath(d))
+        path.setAttribute('class', "edgeAZ")
+        g.append(path)
+        
+        var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute('d', d3helper.curvePath(d))
+        path.setAttribute('class', "edgeZA")
         g.append(path)
         
         

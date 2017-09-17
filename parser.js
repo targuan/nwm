@@ -609,7 +609,6 @@ Parser.prototype.LINK_BANDWIDTH = function(){
         return false
     }
     if(!Parser.bandwidth(this.tokens[this.pos + 1])) {
-        console.log(this.tokens[this.pos + 1])
         return false
     }
     bw = {in: this.tokens[this.pos + 1], out: this.tokens[this.pos + 1]}
@@ -837,7 +836,6 @@ Parser.prototype.LINK_TARGET = function(){
     if(this.tokens[this.pos] != "TARGET") {
         return false
     }
-    console.log(this.tokens[this.pos+1])
     this._current_link.properties['target'] = this.tokens[this.pos+1]
     
     this.pos += 2
