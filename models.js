@@ -36,17 +36,25 @@ var Point = function(x,y, origin) {
 }
 Point.prototype.setX = function(x) {
     this.x = x
+    
+    return this
 }
 Point.prototype.setY = function(y) {
     this.y = y
+    
+    return this
 }
 Point.prototype.setXY = function(x, y) {
     this.x = x
     this.y = y
+    
+    return this
 }
 Point.prototype.setPoint = function(point) {
     this.x = point.x
     this.y = point.y
+    
+    return this
 }
 Point.prototype.getCouple = function() {
     return this.x + "," + this.y
@@ -60,6 +68,8 @@ Point.prototype.copy = function() {
 Point.prototype.moveBy = function(u) {
     this.x += u.x
     this.y += u.y
+    
+    return this
 }
 /**
  * Vector
@@ -170,72 +180,115 @@ Link.prototype.addVia = function(point) {
     this.via.push(point)
 }
 Link.prototype.getSkel = function() {
+    return this.getPoints()
+}
+Link.prototype.getPoints = function() {
     var points = [this.getNodes()[0].position].concat(this.via)
     points.push(this.getNodes()[1].position)
     
     return points
 }
-Link.prototype.getParallal = function(distance) {
-    var points = this.getSkel()
-    
-    if(distance == 0) {
-        return points
+
+var Curve = function(points) {
+    this._points = points
+    this._curve = null
+    if(!Array.isArray(points)) {
+        throw new Error("Curve takes a list of points " + typeof(points) + " given");
     }
-    
-    waypoint = []
-    // First point
-    point = points[0].copy()
-    u = Vector.fromSegment(point, points[1]).orthogonal().normalize(distance)
-    point.moveBy(u)
-    waypoint.push(point)
-    
-    // Middle points
-    for(i=1;i<points.length-1;i++) {
-        point = points[i].copy()
-        u = Vector.fromSegment(points[i-1],point).orthogonal().normalize()
-        v = Vector.fromSegment(point,points[i+1]).orthogonal().normalize()
-        scalar = Vector.scalar_product(u, v)
-        
-        delta = distance/(scalar+1)
-        
-        point.moveBy(Vector.add(u,v).multiply(delta))
-        //point.moveBy(Vector.add(u,v).multiply(distance/2))
-        
-        waypoint.push(point)
-        
+    if(points.length < 2) {
+        throw new Error("A curve need at least 2 points");
     }
-    
-    // Last point
-    point = points[points.length-1].copy()
-    u = Vector.fromSegment(points[points.length-2], point).orthogonal().normalize(distance)
-    point.moveBy(u)
-    waypoint.push(point)
-    
-    
-    return waypoint
+    if(points.length == 2) {
+        this._curve = new Line(points[0], points[1])
+    } else if(points.length == 3) {
+        this._curve = Bezier.quadraticFromPoints(points[0], points[1], points[2])
+    } else {
+        this._curve = PolyBezier.fromPoints(points)
+    }
+}
+Curve.prototype.toSVG = function() {
+    return this._curve.toSVG()
+}
+Curve.prototype.split = function(t) {
+    return this._curve.split(t)
+}
+Curve.prototype.offset = function(distance) {
+    return this._curve.offset(distance)
+}
+Curve.prototype.reverse = function() {
+    return new Curve(this._points.reverse())
 }
 
-d3helper = {}
-// take a link and return the path for this link
-var curve = d3.line()
-        .x(function(d) { return d.x; })
-        .y(function(d) { return d.y; })
-        .curve(d3.curveCardinal)
-var line = d3.line()
-        .x(function(d) { return d.x; })
-        .y(function(d) { return d.y; })
-        .curve(d3.curveLinear)
-curve = line
-d3helper.curvePath = function(d) {
-    inner = d.getParallal(5)
-    outter = d.getParallal(-5).reverse()
-    return curve(inner) + curve(outter).replace('M', 'L') + "Z"
+var Line = function(a,z) {
+    this.a = a
+    this.z = z
 }
-d3helper.linePath = function(d) {
-    inner = d.getParallal(5)
-    outter = d.getParallal(-5).reverse()
-    return line(inner) + line(outter).replace('M', 'L') + "Z"
+Line.prototype.toSVG = function() {
+    return 'M' + this.a.x + ',' + this.a.y + 'L' + this.z.x + ',' + this.z.y
 }
-d3helper.skelPath = function(d) {
-    return curve(d.getSkel())
+Line.prototype.offset = function(distance) {
+    var u = Vector.fromSegment(this.a, this.z)
+    u.orthogonal().normalize(distance)
+    
+    a = this.a.copy()
+    z = this.z.copy()
+    
+    a.moveBy(u)
+    z.moveBy(u)
+    
+    return new Line(a,z)
+}
+Line.prototype.split = function(t) {
+    return {left: this, right: this}
+}
+var Helper = function() {}
+
+Helper.getStroke = function(link, distance) {
+    var distance = distance ||5;
+    curve = new Curve(link.getPoints())
+    
+    pcurve = curve.split(0.5).left.offset(distance)
+    if(Array.isArray(pcurve)) {
+        pcurve = new PolyBezier(pcurve)
+    }
+    
+    ncurve = curve.reverse().split(0.5).right.offset(distance)
+    if(Array.isArray(ncurve)) {
+        ncurve = new PolyBezier(ncurve)
+    }
+    return pcurve.toSVG() + " " + ncurve.toSVG().replace(/^M/,'L')
+}
+Helper.getFirstStroke = function(link, distance) {
+    var distance = distance ||5;
+    curve = new Curve(link.getPoints())
+    
+    pcurve = curve.split(0.5).left.offset(distance)
+    if(Array.isArray(pcurve)) {
+        pcurve = new PolyBezier(pcurve)
+    }
+    
+    ncurve = curve.reverse().split(0.5).right.offset(distance)
+    if(Array.isArray(ncurve)) {
+        ncurve = new PolyBezier(ncurve)
+    }
+    return pcurve.toSVG() + " " + ncurve.toSVG().replace(/^M/,'L')
+}
+Helper.getSecondStroke = function(link, distance) {
+    var distance = distance ||5;
+    curve = new Curve(link.getPoints())
+    
+    pcurve = curve.split(0.5).right.offset(distance)
+    if(Array.isArray(pcurve)) {
+        pcurve = new PolyBezier(pcurve)
+    }
+    
+    ncurve = curve.reverse().split(0.5).left.offset(distance)
+    if(Array.isArray(ncurve)) {
+        ncurve = new PolyBezier(ncurve)
+    }
+    return pcurve.toSVG() + " " + ncurve.toSVG().replace(/^M/,'L')
+}
+Helper.getD = function(link) {
+    curve = new Curve(link.getPoints()).split(0.5).left
+    return curve.toSVG()
 }

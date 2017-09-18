@@ -28,8 +28,9 @@ body {
 .link {
 
     fill:blue;
+    fill-opacity:0.5;
     stroke: black;
-    stroke-width:5;
+    stroke-width:2;
     stroke-opacity: 0.5;
 }
 .path-quad {
@@ -81,6 +82,8 @@ input {
 }
 </style>
 <script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="utils.js"></script>
+<script src="polybezier.js"></script>
 <script src="bezier.js"></script>
 <script src="models.js"></script>
 <script src="parser.js"></script>
@@ -104,9 +107,9 @@ function updateAll() {
 function updateLinkSelection(selection) {
     selection.each(
         function(d){
-            d3.select(this).select('.skel').attr('d', d3helper.skelPath)
-            d3.select(this).select('.edgeAZ').attr('d', d3helper.curvePath)
-            d3.select(this).select('.edgeZA').attr('d', d3helper.curvePath)
+            d3.select(this).select('.skel').attr('d', Helper.getD)
+            d3.select(this).select('.strokeaz').attr('d', Helper.getFirstStroke)
+            d3.select(this).select('.strokeza').attr('d', Helper.getSecondStroke)
         }
     )
 }
@@ -142,6 +145,7 @@ function dragNode(d) {
 }
 
 function dragViapoint(d) {
+    console.log(d)
     d.x += d3.event.dx
     d.y += d3.event.dy
     
@@ -152,7 +156,7 @@ function dragViapoint(d) {
         .attr('cy', function(d){ return d.y })
         .call(d3.drag().on("drag", dragViapoint))
     
-    updateAll(d.map)
+    updateAll()
 }
 
 function selectElement(element, d) {
@@ -179,52 +183,37 @@ function selectLink(d) {
         .attr('r', 5)
         .attr('cx', function(d){ return d.x })
         .attr('cy', function(d){ return d.y })
+        .on("click", function(){console.log('click')})
         
 }
 
-window.onload = function() {
-    d3.select("body")
-        .on("keydown", function(d) { if(d3.event.keyCode == 27) { clearSelection() }})
+function run() {
+    p = new Parser()
+    map = p.compatible_parse(document.getElementsByTagName('textarea')[0].value)
     
-    /*map = new Map();
-    a = new Node("azerty\ntoto", new Point(150,130))
-    z = new Node("z", new Point(500,10))
-    link = new Link("")
-    link.setNodes([a,z])
-    link.addVia(new Point(200,200))
-    link.addVia(new Point(300,400))
-
-    map.addNode(a)
-    map.addNode(z)
-    map.addLink(link)*/
     
-    map = parsed
+    var svg = d3.select("svg").select("#map")
     
-    d3.select("#map-container").on("click", function(){ console.log('click');clearSelection() })
-    var svg = d3.select("#map-container").append("svg")
-        .attr("width", "100%")
-        .attr("height","100%")
-        .append("g")
-        .attr('id', 'map')
         
     links = svg.selectAll(".link").data(map.links)
     links.enter().append(function(d,e,f) {
         var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
         
+        
+        var stroke = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        stroke.setAttribute('d', Helper.getFirstStroke(d))
+        stroke.setAttribute('class', "strokeaz")
+        g.append(stroke)
+        
+        var stroke = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        stroke.setAttribute('d', Helper.getSecondStroke(d))
+        stroke.setAttribute('class', "strokeza")
+        g.append(stroke)
+        
         var skel = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        skel.setAttribute('d', d3helper.skelPath(d))
+        skel.setAttribute('d', Helper.getD(d))
         skel.setAttribute('class', "skel")
         g.append(skel)
-        
-        var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute('d', d3helper.curvePath(d))
-        path.setAttribute('class', "edgeAZ")
-        g.append(path)
-        
-        var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute('d', d3helper.curvePath(d))
-        path.setAttribute('class', "edgeZA")
-        g.append(path)
         
         
         return g
@@ -248,7 +237,21 @@ window.onload = function() {
             return g
         })
         .attr("class", "node")
-        .call(updateNodeSelection)
+    
+    updateAll()
+}
+
+window.onload = function() {
+    d3.select("body")
+        .on("keydown", function(d) { if(d3.event.keyCode == 27) { clearSelection() }})
+        
+    d3.select("#map-container").on("click", function(){ clearSelection() })
+    var svg = d3.select("#map-container").append("svg")
+        .attr("width", "100%")
+        .attr("height","100%")
+        .append("g")
+        .attr('id', 'map')
+    run()
     
 }
 </script>
@@ -259,7 +262,183 @@ window.onload = function() {
 
     </div>
     <div id="context-menu">
-    
+    <textarea style="width:90%; height:90%" onkeyup="run()">
+        # some initial comments...
+#
+# This sample configuration file demonstrates most of the basic features of
+# PHP Weathermap, along with some of the cosmetic and layout changes possible
+#
+#
+BACKGROUND background.png
+HTMLOUTPUTFILE example.html
+IMAGEOUTPUTFILE example.png
+TITLE Network Overview
+HTMLSTYLE overlib
+KEYPOS 10 400
+
+# define some new TrueType fonts - built-in ones go from 1 to 5, so start high
+FONTDEFINE 100 VeraIt 8
+FONTDEFINE 101 Vera 12
+FONTDEFINE 102 Vera 9
+
+KEYFONT 102
+
+LINK DEFAULT
+	BANDWIDTH 100M
+	BWLABEL bits
+	BWFONT 100
+	OVERLIBWIDTH 395
+	OVERLIBHEIGHT 153
+	WIDTH 4
+
+NODE DEFAULT
+	LABELFONT 101
+
+NODE transit
+	POSITION 400 180
+	LABEL TRANSIT
+
+# a little splash of background colour for these nodes
+NODE isp1
+	POSITION 250 100
+	LABEL ISP1
+		INFOURL http://www.isp1.com/support/lookingglass.html
+	LABELBGCOLOR 255 224 224
+
+NODE isp2
+	POSITION 550 100
+	LABEL ISP2
+	INFOURL http://www.isp2.net/portal/
+	LABELBGCOLOR 224 255 224
+
+NODE core
+	POSITION 400 300
+	LABEL core
+	INFOURL https://core.mynet.net/admin/
+
+NODE customer1
+	LABEL xy.com
+	POSITION 150 370
+
+NODE customer2
+	LABEL ww.co.uk
+	POSITION 250 450
+
+NODE infra
+	LABEL INFRASTRUCTURE
+	POSITION 450 450
+
+# this node has an icon, and so we push the label to the South edge of it, so it
+# can still be read
+NODE sync
+	LABEL Sync
+	ICON my_router.png
+	LABELOFFSET S
+	LABELFONT 2
+	POSITION 550 370
+# the icon is taken from a Nagios icon pack:
+#   http://www.nagiosexchange.org/Image_Packs.75.0.html?&tx_netnagext_pi1[p_view]=110&tx_netnagext_pi1[page]=10%3A10
+
+NODE site1
+	LABEL site1
+	POSITION 700 220
+
+NODE site2
+	LABEL site2
+	POSITION 750 420
+
+LINK sync-core
+	NODES sync core
+	TARGET data/sync_traffic_in_259.rrd
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=256&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=256
+#
+# Site1 has two E1s, so we use NODE-offsets to allow them to run parallel
+#
+
+LINK sync-site1a
+	NODES sync:N site1:W
+	WIDTH 3
+	TARGET data/sync_traffic_in_257.rrd
+	BANDWIDTH 2M
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=254&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=126
+
+LINK sync-site1b
+	NODES sync:E site1:SE
+	WIDTH 3
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=255&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=
+	TARGET data/sync_traffic_in_258.rrd
+	BANDWIDTH 2M
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=56
+
+#
+# site2 also has two links, but this time we use the VIA to curve the links
+#
+LINK sync-site2a
+	NODES sync site2
+	WIDTH 3
+	VIA 650 380
+	TARGET data/sync_traffic_in_251.rrd
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=248&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	BANDWIDTH 1M
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=252
+
+LINK sync-site2b
+	NODES sync site2
+	WIDTH 3
+	VIA 650 420
+	TARGET data/sync_traffic_in_252.rrd
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=228&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	BANDWIDTH 1M
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=561
+
+#
+# ISP 1 has a several links, again, but they prefer to see one arrow, and the aggregate bandwidth
+#   so we use multiple TARGETs on one line, here, to sum the data
+
+LINK transit-isp1
+	NODES transit isp1
+	TARGET data/trans1_traffic_in_352.rrd data/trans1_traffic_in_378.rrd data/trans1_traffic_in_420.rrd
+	BANDWIDTH 10M
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=355&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=633
+
+LINK transit-isp2
+	NODES transit isp2
+	TARGET data/trans1_traffic_in_438.rrd
+	BANDWIDTH 34M
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=433&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=265
+
+LINK core-transit
+	NODES transit core
+	TARGET data/trans1_traffic_in_350.rrd
+	ARROWSTYLE compact
+	WIDTH 4
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=347&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=122
+
+LINK cust1-core
+	NODES customer1 core
+	TARGET data/extreme_traffic_in_299.rrd
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=296&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=237
+
+LINK cust2-core
+	NODES customer2 core
+	TARGET data/extreme_traffic_in_286.rrd
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=283&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=222
+
+LINK infra-core
+	NODES infra core
+	TARGET data/extreme_traffic_in_294.rrd
+	OVERLIBGRAPH http://support.mynet.net/cacti/graph_image.php?local_graph_id=291&rra_id=0&graph_nolegend=true&graph_height=100&graph_width=300
+	INFOURL http://support.mynet.net/cacti/graph.php?rra_id=all&local_graph_id=228
+    VIA 100 100
+    VIA 200 50
+    </textarea>
     </div>
 </div>
 </body>
